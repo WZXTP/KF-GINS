@@ -20,6 +20,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+/*这个代码实现了一个基于扩展卡尔曼滤波（EKF）的GNSS/INS（全球导航卫星系统/惯性导航系统）集成导航系统，称为GIEngine类。
+该类用于处理IMU（惯性测量单元）和GNSS（全球导航卫星系统）数据，并将它们结合以实现精准的导航。
+*/
+
 #ifndef GI_ENGINE_H
 #define GI_ENGINE_H
 
@@ -45,6 +49,7 @@ public:
      * @param [in] compensate 是否补偿IMU误差
      *                        if compensate imu error to new imudata
      * */
+    //将新的IMU数据加入系统。IMU数据包括加速度、角速度等，供INS进行位置、速度和姿态估计。参数compensate决定是否对IMU数据进行误差补偿。
     void addImuData(const IMU &imu, bool compensate = false) {
 
         imupre_ = imucur_;
@@ -61,6 +66,7 @@ public:
      * @param [in] gnss 新的GNSS数据
      *                  new gnssdata
      * */
+    //加入新的GNSS数据，通常包括位置信息。默认假设GNSS数据是有效的。
     void addGnssData(const GNSS &gnss) {
 
         gnssdata_ = gnss;
@@ -87,6 +93,7 @@ public:
      * @param [in,out] midimu    输出内插时刻的IMU数据
      *                           output imudata at given timestamp
      * */
+    //将IMU数据在给定的时间戳进行内插，生成两个时间点之间的IMU数据。该功能在IMU数据需要与其他数据源（如GNSS）同步时很有用。
     static void imuInterpolate(const IMU &imu1, IMU &imu2, const double timestamp, IMU &midimu) {
 
         if (imu1.time > timestamp || imu2.time < timestamp) {
@@ -109,6 +116,7 @@ public:
      * @brief 获取当前时间
      *        get current time
      * */
+    //时间戳获取
     double timestamp() const {
         return timestamp_;
     }
@@ -117,6 +125,7 @@ public:
      * @brief 获取当前IMU状态
      *        get current navigation state
      * */
+    //获取导航状态
     NavState getNavState();
 
     /**
@@ -167,7 +176,7 @@ private:
     int isToUpdate(double imutime1, double imutime2, double updatetime) const;
 
     /**
-     * @brief 进行INS状态更新(IMU机械编排算法), 并计算IMU状态转移矩阵和噪声阵
+     * @brief 进行INS状态更新(IMU机械编排算法), 并计算IMU状态转移矩阵和噪声阵，用于状态预测
      *        do INS state update(INS mechanization), and compute state transition matrix and noise matrix
      * @param [in,out] imupre 前一时刻IMU数据
      *                        imudata at the previous epoch
@@ -191,6 +200,7 @@ private:
      * @param [in,out] Qd  传播噪声矩阵
      *                     propagation noise matrix
      * */
+    //执行卡尔曼滤波的预测步骤，更新状态转移矩阵Phi和噪声矩阵Qd。
     void EKFPredict(Eigen::MatrixXd &Phi, Eigen::MatrixXd &Qd);
 
     /**
@@ -203,12 +213,14 @@ private:
      * @param [in] R  观测噪声阵
      *                measurement noise matrix
      * */
+    //执行卡尔曼滤波的更新步骤，基于新观测数据更新状态和协方差。
     void EKFUpdate(Eigen::MatrixXd &dz, Eigen::MatrixXd &H, Eigen::MatrixXd &R);
 
     /**
      * @brief 反馈误差状态到当前状态
      *        feedback error state to the current state
      * */
+    //将误差状态反馈到当前的导航状态，修正导航状态
     void stateFeedback();
 
     /**
