@@ -19,6 +19,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+/*
+这个代码实现了一个基于扩展卡尔曼滤波（EKF）的GNSS/INS（全球导航卫星系统/惯性导航系统）集成导航系统。
+它使用惯性测量单元（IMU）数据和GNSS数据来进行导航状态估计。
+*/
 
 #include "common/earth.h"
 #include "common/rotation.h"
@@ -26,13 +30,14 @@
 #include "gi_engine.h"
 #include "insmech.h"
 
+//构造函数
 GIEngine::GIEngine(GINSOptions &options) {
 
     this->options_ = options;
     options_.print_options();
     timestamp_ = 0;
 
-    // 设置协方差矩阵，系统噪声阵和系统误差状态矩阵大小
+    // 设置协方差矩阵Cov_，系统噪声阵Qc_和系统误差状态矩阵dx_大小
     // resize covariance matrix, system noise matrix, and system error state matrix
     Cov_.resize(RANK, RANK);
     Qc_.resize(NOISERANK, NOISERANK);
@@ -41,7 +46,7 @@ GIEngine::GIEngine(GINSOptions &options) {
     Qc_.setZero();
     dx_.setZero();
 
-    // 初始化系统噪声阵
+    // 根据IMU的噪声参数（如角速度随机游走和加速度随机游走）,初始化系统噪声阵Qc_
     // initialize noise matrix
     auto imunoise                   = options_.imunoise;
     Qc_.block(ARW_ID, ARW_ID, 3, 3) = imunoise.gyr_arw.cwiseProduct(imunoise.gyr_arw).asDiagonal();
@@ -89,6 +94,7 @@ void GIEngine::initialize(const NavState &initstate, const NavState &initstate_s
     Cov_.block(SA_ID, SA_ID, 3, 3)   = imuerror_std.accscale.cwiseProduct(imuerror_std.accscale).asDiagonal();
 }
 
+// IMU处理函数
 void GIEngine::newImuProcess() {
 
     // 当前IMU时间作为系统当前状态时间,
@@ -152,6 +158,7 @@ void GIEngine::newImuProcess() {
     imupre_ = imucur_;
 }
 
+// IMU误差补偿
 void GIEngine::imuCompensate(IMU &imu) {
 
     // 补偿IMU零偏
@@ -168,6 +175,7 @@ void GIEngine::imuCompensate(IMU &imu) {
     imu.dvel   = imu.dvel.cwiseProduct(accscale.cwiseInverse());
 }
 
+// INS状态传播
 void GIEngine::insPropagation(IMU &imupre, IMU &imucur) {
 
     // 对当前IMU数据(imucur)补偿误差, 上一IMU数据(imupre)已经补偿过了
@@ -299,6 +307,7 @@ void GIEngine::insPropagation(IMU &imupre, IMU &imucur) {
     EKFPredict(Phi, Qd);
 }
 
+// GNSS更新
 void GIEngine::gnssUpdate(GNSS &gnssdata) {
 
     // IMU位置转到GNSS天线相位中心位置
